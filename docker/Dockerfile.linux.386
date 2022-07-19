@@ -5,7 +5,7 @@ FROM scratch
 
 EXPOSE 9504
 ENTRYPOINT ["/usr/bin/github_exporter"]
-HEALTHCHECK CMD ["/usr/bin/github_exporter", "health"]
+# HEALTHCHECK CMD ["/home/tpriadka/hackathon/github_exporter/bin/github_exporter", "health"]
 
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /etc/mime.types /etc/

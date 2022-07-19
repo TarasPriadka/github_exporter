@@ -26,7 +26,7 @@ import (
 // Server handles the server sub-command.
 func Server(cfg *config.Config, logger log.Logger) error {
 	level.Info(logger).Log(
-		"msg", "Launching GitHub Exporter",
+		"msg", "Launching GitHub Exporterrrr",
 		"version", version.String,
 		"revision", version.Revision,
 		"date", version.Date,
@@ -212,6 +212,18 @@ func handler(cfg *config.Config, logger log.Logger, client *github.Client) *chi.
 			cfg.Target,
 		))
 	}
+
+	level.Debug(logger).Log(
+		"msg", "Issue collector registered",
+	)
+
+	registry.MustRegister(exporter.NewIssueCollector(
+		logger,
+		client,
+		requestFailures,
+		requestDuration,
+		cfg.Target,
+	))
 
 	reg := promhttp.HandlerFor(
 		registry,
