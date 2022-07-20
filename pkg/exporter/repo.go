@@ -22,6 +22,8 @@ type RepoCollector struct {
 	duration *prometheus.HistogramVec
 	config   config.Target
 
+	All *prometheus.Desc
+
 	Forked           *prometheus.Desc
 	Forks            *prometheus.Desc
 	Network          *prometheus.Desc
@@ -58,6 +60,13 @@ func NewRepoCollector(logger log.Logger, client *github.Client, failures *promet
 		failures: failures,
 		duration: duration,
 		config:   cfg,
+
+		All: prometheus.NewDesc(
+			"github_repo_all",
+			"All info about github repo",
+			[]string{"forks", "network", "issues", "stargazers", "subscribers", "watchers", "size"},
+			nil,
+		),
 
 		Pushed: prometheus.NewDesc(
 			"github_repo_pushed_timestamp",
@@ -191,6 +200,7 @@ func NewRepoCollector(logger log.Logger, client *github.Client, failures *promet
 // Metrics simply returns the list metric descriptors for generating a documentation.
 func (c *RepoCollector) Metrics() []*prometheus.Desc {
 	return []*prometheus.Desc{
+		c.All,
 		c.Forked,
 		c.Forks,
 		c.Network,
@@ -217,6 +227,7 @@ func (c *RepoCollector) Metrics() []*prometheus.Desc {
 
 // Describe sends the super-set of all possible descriptors of metrics collected by this Collector.
 func (c *RepoCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.All
 	ch <- c.Forked
 	ch <- c.Forks
 	ch <- c.Network
@@ -275,7 +286,7 @@ func (c *RepoCollector) Collect(ch chan<- prometheus.Metric) {
 			continue
 		}
 
-		for _, record := range records {
+		for i, record := range records {
 			if !glob.Glob(name, *record.FullName) {
 				continue
 			}
@@ -285,6 +296,7 @@ func (c *RepoCollector) Collect(ch chan<- prometheus.Metric) {
 				*record.Name,
 			}
 
+			forks, networks, issues, stargazers, subscribers, watchers, size := "", "", "", "", "", "", ""
 			if record.Fork != nil {
 				ch <- prometheus.MustNewConstMetric(
 					c.Forked,
@@ -295,6 +307,7 @@ func (c *RepoCollector) Collect(ch chan<- prometheus.Metric) {
 			}
 
 			if record.ForksCount != nil {
+				forks = string_int_or_empty(record.ForksCount)
 				ch <- prometheus.MustNewConstMetric(
 					c.Forks,
 					prometheus.GaugeValue,
@@ -304,6 +317,7 @@ func (c *RepoCollector) Collect(ch chan<- prometheus.Metric) {
 			}
 
 			if record.NetworkCount != nil {
+				networks = string_int_or_empty(record.NetworkCount)
 				ch <- prometheus.MustNewConstMetric(
 					c.Network,
 					prometheus.GaugeValue,
@@ -313,6 +327,7 @@ func (c *RepoCollector) Collect(ch chan<- prometheus.Metric) {
 			}
 
 			if record.OpenIssuesCount != nil {
+				issues = string_int_or_empty(record.OpenIssuesCount)
 				ch <- prometheus.MustNewConstMetric(
 					c.Issues,
 					prometheus.GaugeValue,
@@ -322,6 +337,7 @@ func (c *RepoCollector) Collect(ch chan<- prometheus.Metric) {
 			}
 
 			if record.StargazersCount != nil {
+				stargazers = string_int_or_empty(record.StargazersCount)
 				ch <- prometheus.MustNewConstMetric(
 					c.Stargazers,
 					prometheus.GaugeValue,
@@ -331,6 +347,7 @@ func (c *RepoCollector) Collect(ch chan<- prometheus.Metric) {
 			}
 
 			if record.SubscribersCount != nil {
+				subscribers = string_int_or_empty(record.SubscribersCount)
 				ch <- prometheus.MustNewConstMetric(
 					c.Subscribers,
 					prometheus.GaugeValue,
@@ -340,6 +357,7 @@ func (c *RepoCollector) Collect(ch chan<- prometheus.Metric) {
 			}
 
 			if record.WatchersCount != nil {
+				watchers = string_int_or_empty(record.WatchersCount)
 				ch <- prometheus.MustNewConstMetric(
 					c.Watchers,
 					prometheus.GaugeValue,
@@ -349,6 +367,7 @@ func (c *RepoCollector) Collect(ch chan<- prometheus.Metric) {
 			}
 
 			if record.Size != nil {
+				size = string_int_or_empty(record.Size)
 				ch <- prometheus.MustNewConstMetric(
 					c.Size,
 					prometheus.GaugeValue,
@@ -466,6 +485,19 @@ func (c *RepoCollector) Collect(ch chan<- prometheus.Metric) {
 				prometheus.GaugeValue,
 				float64(record.UpdatedAt.Unix()),
 				labels...,
+			)
+
+			ch <- prometheus.MustNewConstMetric(
+				c.All,
+				prometheus.GaugeValue,
+				float64(i),
+				forks,
+				networks,
+				issues,
+				stargazers,
+				subscribers,
+				watchers,
+				size,
 			)
 		}
 	}
