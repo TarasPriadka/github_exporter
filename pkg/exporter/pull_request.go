@@ -35,6 +35,7 @@ func NewPullRequestCollector(logger log.Logger, client *github.Client, failures 
 		duration: duration,
 		config:   cfg,
 
+		// Object All has string keys that will store information from GitHub
 		All: prometheus.NewDesc(
 			"github_pull_requests_all",
 			"All info about github pull requests",
@@ -77,6 +78,7 @@ func (c *PullRequestCollector) Collect(ch chan<- prometheus.Metric) {
 		ctx, cancel := context.WithTimeout(context.Background(), c.config.Timeout)
 		defer cancel()
 
+		// fetch pull requests from git
 		pullRequests, _, err := c.client.PullRequests.List(ctx, owner, repo, nil)
 
 		if err != nil {
@@ -103,7 +105,9 @@ func (c *PullRequestCollector) Collect(ch chan<- prometheus.Metric) {
 					labels = append(labels, *git_label.Name)
 				}
 			}
-
+			/* process pull requests and assign values to attributes defined above,
+			manage NullPointerExceptions with helper methods
+			*/
 			if len(record.Labels) > 0 {
 				label = string_or_empty(record.Labels[0].Name)
 			}
@@ -132,6 +136,7 @@ func (c *PullRequestCollector) Collect(ch chan<- prometheus.Metric) {
 				merged = string_bool_or_empty(record.Merged)
 			}
 
+			//construct metric to send data
 			ch <- prometheus.MustNewConstMetric(
 				c.All,
 				prometheus.GaugeValue,
@@ -161,6 +166,7 @@ func (c *PullRequestCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
+//function gets repo list and returns repo that matches owner and name
 func (c *PullRequestCollector) reposByOwnerAndName(ctx context.Context, owner, repo string) ([]*github.Repository, error) {
 	if strings.Contains(repo, "*") {
 		opts := &github.SearchOptions{

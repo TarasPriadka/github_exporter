@@ -33,6 +33,7 @@ func Server(cfg *config.Config, logger log.Logger) error {
 		"go", version.Go,
 	)
 
+	// connect to GitHub API using GitHubClient
 	client := github.NewClient(
 		oauth2.NewClient(
 			context.Background(),
@@ -84,6 +85,7 @@ func Server(cfg *config.Config, logger log.Logger) error {
 
 	var gr run.Group
 
+	//start metrics server
 	{
 		server := &http.Server{
 			Addr:         cfg.Server.Addr,
@@ -136,6 +138,7 @@ func Server(cfg *config.Config, logger log.Logger) error {
 	return gr.Run()
 }
 
+//handler to register collectors and export repo, issues, pull_request, etc. data
 func handler(cfg *config.Config, logger log.Logger, client *github.Client) *chi.Mux {
 	mux := chi.NewRouter()
 	mux.Use(middleware.Recoverer(logger))

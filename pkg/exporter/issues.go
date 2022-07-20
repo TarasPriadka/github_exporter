@@ -13,7 +13,7 @@ import (
 	"github.com/promhippie/github_exporter/pkg/config"
 )
 
-// RepoCollector collects metrics about the servers.
+// IssueCollector collects metrics about the GitHub issues.
 type IssueCollector struct {
 	client   *github.Client
 	logger   log.Logger
@@ -24,7 +24,7 @@ type IssueCollector struct {
 	All *prometheus.Desc
 }
 
-// NewRepoCollector returns a new RepoCollector.
+// NewIssueCollector returns a new IssueCollector.
 func NewIssueCollector(logger log.Logger, client *github.Client, failures *prometheus.CounterVec, duration *prometheus.HistogramVec, cfg config.Target) *IssueCollector {
 	if failures != nil {
 		failures.WithLabelValues("repo").Add(0)
@@ -195,6 +195,8 @@ func (c *IssueCollector) reposByOwnerAndName(ctx context.Context, owner, repo st
 		res,
 	}, nil
 }
+
+/* Helper methods to handle NullPointerExceptions and empty values */
 
 func string_or_empty(ptr *string) string {
 	if ptr == nil {
