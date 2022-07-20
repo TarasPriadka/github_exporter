@@ -20,6 +20,7 @@ type IssueCollector struct {
 	duration *prometheus.HistogramVec
 	config   config.Target
 
+	All                  *prometheus.Desc
 	Status               *prometheus.Desc
 	Locked               *prometheus.Desc
 	Title                *prometheus.Desc
@@ -51,6 +52,12 @@ func NewIssueCollector(logger log.Logger, client *github.Client, failures *prome
 		duration: duration,
 		config:   cfg,
 
+		All: prometheus.NewDesc(
+			"github_issues_all",
+			"All info about github issues",
+			[]string{"id", "status", "locked", "title", "body", "user", "author_association", "label", "num_comments", "created_at", "updated_at", "url", "html_url", "reactions_total", "reactions_plus_one", "reactions_minus_one", "assignee"},
+			nil,
+		),
 		Status: prometheus.NewDesc(
 			"github_issues_status",
 			"Status of the issue",
@@ -153,6 +160,7 @@ func NewIssueCollector(logger log.Logger, client *github.Client, failures *prome
 // Metrics simply returns the list metric descriptors for generating a documentation.
 func (c *IssueCollector) Metrics() []*prometheus.Desc {
 	return []*prometheus.Desc{
+		c.All,
 		c.Status,
 		c.Locked,
 		c.Title,
@@ -174,6 +182,7 @@ func (c *IssueCollector) Metrics() []*prometheus.Desc {
 
 // Describe sends the super-set of all possible descriptors of metrics collected by this Collector.
 func (c *IssueCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.All
 	ch <- c.Status
 	ch <- c.Locked
 	ch <- c.Title
@@ -226,60 +235,132 @@ func (c *IssueCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 
 		for i, record := range issues {
-			id := fmt.Sprint(*record.ID)
-			if record.State != nil {
-				labels := []string{id, *record.State}
-				ch <- prometheus.MustNewConstMetric(
-					c.Status,
-					prometheus.GaugeValue,
-					float64(i),
-					labels...,
-				)
-			}
-
-			if record.Locked != nil {
-				locked := "true"
-				if !*record.Locked {
-					locked = "false"
-				}
-
-				ch <- prometheus.MustNewConstMetric(
-					c.Locked,
-					prometheus.GaugeValue,
-					float64(i),
-					id,
-					locked,
-				)
-			}
-
-			if record.Title != nil {
-				ch <- prometheus.MustNewConstMetric(
-					c.Title,
-					prometheus.GaugeValue,
-					float64(i),
-					id,
-					*record.Title,
-				)
-			}
-
-			if record.Body != nil {
-				ch <- prometheus.MustNewConstMetric(
-					c.Body,
-					prometheus.GaugeValue,
-					float64(i),
-					id,
-					*record.Body,
-				)
-			}
-
-			// if record.StargazersCount != nil {
+			id := string_int64_or_empty(record.ID)
+			// if record.State != nil {
+			// 	labels := []string{id, *record.State}
 			// 	ch <- prometheus.MustNewConstMetric(
-			// 		c.Stargazers,
+			// 		c.Status,
 			// 		prometheus.GaugeValue,
-			// 		float64(*record.StargazersCount),
+			// 		float64(i),
 			// 		labels...,
 			// 	)
 			// }
+
+			// if record.Locked != nil {
+			// 	locked := "true"
+			// 	if !*record.Locked {
+			// 		locked = "false"
+			// 	}
+
+			// 	ch <- prometheus.MustNewConstMetric(
+			// 		c.Locked,
+			// 		prometheus.GaugeValue,
+			// 		float64(i),
+			// 		id,
+			// 		locked,
+			// 	)
+			// }
+
+			// if record.Title != nil {
+			// 	ch <- prometheus.MustNewConstMetric(
+			// 		c.Title,
+			// 		prometheus.GaugeValue,
+			// 		float64(i),
+			// 		id,
+			// 		*record.Title,
+			// 	)
+			// }
+
+			// if record.Body != nil {
+			// 	ch <- prometheus.MustNewConstMetric(
+			// 		c.Body,
+			// 		prometheus.GaugeValue,
+			// 		float64(i),
+			// 		id,
+			// 		*record.Body,
+			// 	)
+			// }
+
+			// if record.AuthorAssociation != nil {
+			// 	ch <- prometheus.MustNewConstMetric(
+			// 		c.AuthorityAssociation,
+			// 		prometheus.GaugeValue,
+			// 		float64(i),
+			// 		id,
+			// 		*record.AuthorAssociation,
+			// 	)
+			// }
+
+			// if record.User != nil {
+			// 	ch <- prometheus.MustNewConstMetric(
+			// 		c.User,
+			// 		prometheus.GaugeValue,
+			// 		float64(i),
+			// 		id,
+			// 		*record.User.Login,
+			// 	)
+			// }
+
+			// if record.AuthorAssociation != nil {
+			// 	ch <- prometheus.MustNewConstMetric(
+			// 		c.AuthorityAssociation,
+			// 		prometheus.GaugeValue,
+			// 		float64(i),
+			// 		id,
+			// 		*record.AuthorAssociation,
+			// 	)
+			// }
+
+			locked := "true"
+			if record.Locked == nil {
+				locked = ""
+			} else if !*record.Locked {
+				locked = "false"
+			}
+			var labels []string
+			for _, git_label := range record.Labels {
+				if git_label != nil {
+					labels = append(labels, *git_label.Name)
+				}
+			}
+
+			label, user, assignee := "", "", ""
+			if len(record.Labels) > 0 {
+				label = string_or_empty(record.Labels[0].Name)
+			}
+
+			if record.Assignee != nil {
+				assignee = string_or_empty(record.Assignee.Login)
+			}
+
+			if record.User != nil {
+				user = string_or_empty(record.User.Login)
+			}
+
+			ch <- prometheus.MustNewConstMetric(
+				c.All,
+				prometheus.GaugeValue,
+				float64(i),
+				id,
+				string_or_empty(record.State),
+				locked,
+				string_or_empty(record.Title),
+				string_or_empty(record.Body),
+				user,
+				string_or_empty(record.AuthorAssociation),
+				label,
+				string_int_or_empty(record.Comments),
+				// record.CreatedAt.String(),
+				// record.UpdatedAt.String(),
+				"",
+				"",
+				string_or_empty(record.URL),
+				string_or_empty(record.HTMLURL),
+				string_int_or_empty(record.Reactions.TotalCount),
+				string_int_or_empty(record.Reactions.PlusOne),
+				string_int_or_empty(record.Reactions.MinusOne),
+				assignee,
+			)
 
 			// if record.SubscribersCount != nil {
 			// 	ch <- prometheus.MustNewConstMetric(
@@ -469,4 +550,28 @@ func (c *IssueCollector) reposByOwnerAndName(ctx context.Context, owner, repo st
 	return []*github.Repository{
 		res,
 	}, nil
+}
+
+func string_or_empty(ptr *string) string {
+	if ptr == nil {
+		return ""
+	} else {
+		return *ptr
+	}
+}
+
+func string_int_or_empty(ptr *int) string {
+	if ptr == nil {
+		return ""
+	} else {
+		return fmt.Sprint(*ptr)
+	}
+}
+
+func string_int64_or_empty(ptr *int64) string {
+	if ptr == nil {
+		return ""
+	} else {
+		return fmt.Sprint(*ptr)
+	}
 }

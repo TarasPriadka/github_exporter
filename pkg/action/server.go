@@ -225,13 +225,13 @@ func handler(cfg *config.Config, logger log.Logger, client *github.Client) *chi.
 		cfg.Target,
 	))
 
-	registry.MustRegister(exporter.NewPullRequestCollector(
-		logger,
-		client,
-		requestFailures,
-		requestDuration,
-		cfg.Target,
-	))
+	// registry.MustRegister(exporter.NewPullRequestCollector(
+	// 	logger,
+	// 	client,
+	// 	requestFailures,
+	// 	requestDuration,
+	// 	cfg.Target,
+	// ))
 
 	reg := promhttp.HandlerFor(
 		registry,
